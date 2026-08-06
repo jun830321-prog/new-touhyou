@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block content %}
+<header class="page-header">
+  <a href="{{ url_for('home') }}" class="back-link">← ロビーに戻る</a>
+  <span class="logo-small">Vote</span>
+  <span class="breadcrumb-sep">/</span>
+  <span class="breadcrumb-current">グループに参加</span>
+</header>
+
+<main class="form-page">
+  <h1>グループに参加する</h1>
+  <p class="page-desc">グループのオーナーから共有されたグループ番号とパスワードを入力してください</p>
+
+  <div class="card">
+    {% if error %}
+    <p class="server-error">{{ error }}</p>
+    {% endif %}
+    <form method="POST" action="{{ url_for('join_group') }}" novalidate id="join-form">
+      <div class="form-group">
+        <label for="group_number">グループ番号</label>
+        <input type="text" id="group_number" name="group_number" maxlength="4" pattern="[0-9]{4}" inputmode="numeric" placeholder="0000">
+        <p class="field-error" id="group_number_error"></p>
+      </div>
+
+      <div class="form-group">
+        <label for="join_password">参加用パスワード</label>
+        <input type="text" id="join_password" name="password" maxlength="12" placeholder="オーナーから共有されたパスワード">
+        <p class="field-error" id="join_password_error"></p>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block">参加する</button>
+    </form>
+  </div>
+</main>
+
+<script>
+let formSubmitted = false;
+
+function validateGroupNumber() {
+  const el = document.getElementById("group_number");
+  const errorEl = document.getElementById("group_number_error");
+  if (el.value.trim() === "") {
+    errorEl.textContent = "グループ番号を入力してください";
+    return false;
+  }
+  errorEl.textContent = "";
+  return true;
+}
+
+function validateJoinPassword() {
+  const el = document.getElementById("join_password");
+  const errorEl = document.getElementById("join_password_error");
+  if (el.value.trim() === "") {
+    errorEl.textContent = "パスワードを入力してください";
+    return false;
+  }
+  errorEl.textContent = "";
+  return true;
+}
+
+document.getElementById("join-form").addEventListener("submit", function(e) {
+  formSubmitted = true;
+  const a = validateGroupNumber();
+  const b = validateJoinPassword();
+  if (!a || !b) e.preventDefault();
+});
+
+document.getElementById("group_number").addEventListener("input", function() {
+  if (formSubmitted) validateGroupNumber();
+});
+document.getElementById("join_password").addEventListener("input", function() {
+  if (formSubmitted) validateJoinPassword();
+});
+</script>
+{% endblock %}

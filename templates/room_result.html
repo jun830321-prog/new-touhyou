@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block content %}
+<header class="page-header page-header-split">
+  <div>
+    <span class="logo-small">Vote</span>
+    <span class="breadcrumb-sep">/</span>
+    <span class="breadcrumb-current">{{ group_name }}</span>
+  </div>
+  <div class="header-badges">
+    <a href="{{ url_for('home') }}" class="badge-link">← ロビーに戻る</a>
+    <span class="badge-status result">結果発表</span>
+    <span class="badge-muted">{{ participant_count }}人参加中</span>
+    <span class="badge-muted">#{{ group_number }}</span>
+    {% if is_owner %}
+    <span class="badge-owner">オーナー</span>
+    {% endif %}
+  </div>
+</header>
+
+<main class="room-layout">
+  <div class="room-main">
+    <h1>投票結果</h1>
+    <p class="page-desc">総票数 {{ total_votes }}票・{{ results|length }}件の選択肢</p>
+
+    <div class="result-list">
+      {% for r in results %}
+      <div class="result-row {% if r.is_tie %}is-tie{% endif %}">
+        <span class="result-rank rank-{{ r.rank }}">{{ r.rank }}</span>
+        <span class="result-name">{{ r.name }}</span>
+        {% if r.is_tie %}<span class="tie-badge">タイ</span>{% endif %}
+        <span class="result-votes">{{ r.votes }}票</span>
+        <span class="result-percentage">{{ r.percentage }}%</span>
+      </div>
+      <div class="result-bar-track">
+        <div class="result-bar-fill" style="width: {{ r.percentage }}%;"></div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% if is_tie %}
+    <div class="tie-notice">
+      <p class="tie-notice-title">同数タイが発生しました</p>
+      <p class="tie-notice-text">上位の選択肢が同数です。対象の選択肢のみで再投票(持ち票3票)を行います。</p>
+      {% if is_owner %}
+      <div class="tie-notice-actions">
+        <button type="button" class="btn btn-primary" onclick="startRevote()">決選投票へ進む</button>
+        <button type="button" class="link-btn" onclick="lotteryClose()">くじ引きで決定してクローズ</button>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="leave-row">
+      {% if is_owner %}
+      <button type="button" class="btn-leave" onclick="deleteGroup()">このグループを削除する</button>
+      {% else %}
+      <button type="button" class="btn-leave" onclick="leaveGroup()">このグループから脱退する</button>
+      {% endif %}
+    </div>
+  </div>
+
+  <aside class="room-sidebar">
+    {% if is_owner %}
+    <div class="side-card">
+      <p class="side-card-title">オーナー操作</p>
+      {% if is_tie %}
+      <p class="side-card-text">タイを解消するか、くじ引きで決定してください。</p>
+      <button type="button" class="btn btn-primary" style="width:100%; margin-top:8px;" onclick="startRevote()">決選投票へ進む</button>
+      <button type="button" class="btn-close-vote" style="margin-top:8px;" onclick="lotteryClose()">くじ引きでクローズ</button>
+      {% else %}
+      <p class="side-card-text">結果を確定し、グループを終了します。</p>
+      <button type="button" class="btn-close-vote" onclick="finalClose()">最終クローズ</button>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="side-card">
+      <p class="side-card-title">このページを共有</p>
+      <p class="side-card-text">グループ番号とパスワードを参加者と共有すると、いつでも結果を確認できます。</p>
+    </div>
+  </aside>
+</main>
+
+<script>
+const groupNumber = "{{ group_number }}";
+
+async function startRevote() {
+  if (!confirm("タイの選択肢のみで再投票を始めますか?")) return;
+  await fetch(`/api/room/${groupNumber}/revote`, { method: "POST" });
+  location.reload();
+}
+
+async function lotteryClose() {
+  if (!confirm("くじ引きで決定し、グループをクローズしますか?")) return;
+  await fetch(`/api/room/${groupNumber}/lottery`, { method: "POST" });
+  location.reload();
+}
+
+async function finalClose() {
+  if (!confirm("結果を確定してグループをクローズしますか?")) return;
+  await fetch(`/api/room/${groupNumber}/final_close`, { method: "POST" });
+  location.reload();
+}
+
+async function leaveGroup() {
+  if (!confirm("本当にこのグループから脱退しますか?")) return;
+  await fetch(`/api/room/${groupNumber}/leave`, { method: "POST" });
+  location.href = "{{ url_for('home') }}";
+}
+
+async function deleteGroup() {
+  if (!confirm("本当にこのグループを削除しますか?この操作は取り消せません。すべての選択肢・チャット・投票データが完全に削除されます。")) return;
+  await fetch(`/api/room/${groupNumber}/delete`, { method: "POST" });
+  location.href = "{{ url_for('home') }}";
+}
+
+let currentStatus = "result";
+
+async function pollStatus() {
+  const res = await fetch(`/api/room/${groupNumber}`);
+  const room = await res.json();
+
+  if (room.status !== currentStatus) {
+    showStatusChangeBanner(room.status);
+  }
+  currentStatus = room.status;
+}
+
+function showStatusChangeBanner(newStatus) {
+  let message = "状況が更新されました。更新して確認しましょう";
+  if (newStatus === "voting") {
+    message = "同数のため決選投票が始まりました(持ち票3票)。更新して参加しましょう";
+  } else if (newStatus === "closed") {
+    message = "投票が完了しました。更新して確認しましょう";
+  }
+
+  const banner = document.createElement("div");
+  banner.className = "started-banner";
+  banner.innerHTML = `
+    ${message}
+    <button type="button" onclick="location.reload()">更新する</button>
+  `;
+  document.body.prepend(banner);
+}
+
+let pollTimer = setInterval(pollStatus, 5000);
+
+document.addEventListener("visibilitychange", function() {
+  if (document.hidden) {
+    clearInterval(pollTimer);
+  } else {
+    pollTimer = setInterval(pollStatus, 5000);
+    pollStatus();
+  }
+});
+</script>
+{% endblock %}

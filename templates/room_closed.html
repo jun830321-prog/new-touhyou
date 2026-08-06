@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block content %}
+<header class="page-header">
+  <span class="logo-small">Vote</span>
+</header>
+
+<main class="closed-page">
+  <div class="closed-icon">✓</div>
+  <h1>投票が完了しました</h1>
+  <p class="page-desc">{{ group_name }}の意思決定が終わりました。ご参加ありがとうございました。</p>
+
+  <div class="closed-card">
+    <p class="closed-label">決定事項</p>
+    <p class="closed-decision">{{ final_decision }}</p>
+    <p class="closed-votes">{{ final_votes }}票を獲得</p>
+  </div>
+
+  <a href="{{ url_for('home') }}" class="btn btn-primary">← ロビーに戻る</a>
+  
+  <p class="closed-note">このページはブラウザを閉じると消えます</p>
+</main>
+{% endblock %}

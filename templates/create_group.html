@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block content %}
+<header class="page-header">
+  <a href="{{ url_for('home') }}" class="back-link">← 戻る</a>
+  <span class="logo-small">Vote</span>
+  <span class="breadcrumb-sep">/</span>
+  <span class="breadcrumb-current">グループを作成</span>
+</header>
+
+<main class="form-page">
+  <h1>グループを作成</h1>
+  <p class="page-desc">作成後にグループ番号とオーナー専用コードが発行されます</p>
+
+  <div class="card">
+    <form method="POST" action="{{ url_for('create_group') }}" novalidate id="create-form">
+      <div class="form-group">
+        <label for="group_name">グループ名</label>
+        <input type="text" id="group_name" name="group_name" maxlength="30" placeholder="例:第3回定例会 場所決め">
+        <p class="field-error" id="group_name_error"></p>
+      </div>
+
+      <div class="form-group">
+        <label for="password">参加用パスワード</label>
+        <input type="text" id="password" name="password" maxlength="12" pattern="[A-Za-z0-9]{4,12}" title="半角英数字4〜12文字で入力してください" placeholder="参加者に共有するパスワード">
+        <p class="form-hint">半角英数字4〜12文字・グループに参加する全員がこのパスワードを使います</p>
+        <p class="field-error" id="password_error"></p>
+      </div>
+
+      <div class="form-group">
+        <label for="votes_per_person">1人あたりの持ち票数</label>
+        <div class="stepper">
+          <button type="button" class="stepper-btn" onclick="stepValue('votes_per_person', -1)">−</button>
+          <input type="number" id="votes_per_person" name="votes_per_person" min="1" max="5" value="5">
+          <button type="button" class="stepper-btn" onclick="stepValue('votes_per_person', 1)">+</button>
+        </div>
+        <p class="form-hint">1〜5票の範囲で指定できます</p>
+      </div>
+
+      <div class="form-group">
+        <label for="period_days">投票期間(日数)</label>
+        <div class="stepper">
+          <button type="button" class="stepper-btn" onclick="stepValue('period_days', -1)">−</button>
+          <input type="number" id="period_days" name="period_days" min="1" max="30" value="7">
+          <button type="button" class="stepper-btn" onclick="stepValue('period_days', 1)">+</button>
+        </div>
+        <p class="form-hint" id="end_estimate"></p>
+      </div>
+
+      <div class="form-group toggle-row">
+        <div>
+          <label>選択肢の表示順をシャッフルする</label>
+          <p class="form-hint">オンにすると、参加者ごと・アクセスするたびに選択肢の並び順がランダムになります</p>
+        </div>
+        <label class="switch">
+          <input type="checkbox" name="shuffle_options" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block">グループを作成する</button>
+    </form>
+  </div>
+</main>
+
+<script>
+function stepValue(id, delta) {
+  const input = document.getElementById(id);
+  const min = parseInt(input.min);
+  const max = parseInt(input.max);
+  let value = parseInt(input.value) + delta;
+  if (value < min) value = min;
+  if (value > max) value = max;
+  input.value = value;
+  if (id === "period_days") updateEndEstimate();
+}
+
+function updateEndEstimate() {
+  const days = parseInt(document.getElementById("period_days").value) || 0;
+  const endDate = new Date();
+  endDate.setDate(endDate.getDate() + days);
+
+  const formatted = endDate.toLocaleString("ja-JP", {
+    year: "numeric", month: "long", day: "numeric",
+    hour: "2-digit", minute: "2-digit"
+  });
+
+  document.getElementById("end_estimate").textContent = `終了予定:${formatted}頃(このまま自動締切)`;
+}
+
+document.getElementById("period_days").addEventListener("input", updateEndEstimate);
+updateEndEstimate();
+
+let formSubmitted = false;
+
+function validateGroupName() {
+  const groupName = document.getElementById("group_name");
+  const groupNameError = document.getElementById("group_name_error");
+  if (groupName.value.trim() === "") {
+    groupNameError.textContent = "グループ名を入力してください";
+    return false;
+  }
+  groupNameError.textContent = "";
+  return true;
+}
+
+function validatePassword() {
+  const password = document.getElementById("password");
+  const passwordError = document.getElementById("password_error");
+  if (password.value.trim() === "") {
+    passwordError.textContent = "参加用パスワードを入力してください";
+    return false;
+  } else if (!password.checkValidity()) {
+    passwordError.textContent = "半角英数字4〜12文字で入力してください";
+    return false;
+  }
+  passwordError.textContent = "";
+  return true;
+}
+
+document.getElementById("create-form").addEventListener("submit", function(e) {
+  formSubmitted = true;
+  const groupNameValid = validateGroupName();
+  const passwordValid = validatePassword();
+  if (!groupNameValid || !passwordValid) {
+    e.preventDefault();
+  }
+});
+
+document.getElementById("group_name").addEventListener("input", function() {
+  if (formSubmitted) validateGroupName();
+});
+
+document.getElementById("password").addEventListener("input", function() {
+  if (formSubmitted) validatePassword();
+});
+</script>
+{% endblock %}

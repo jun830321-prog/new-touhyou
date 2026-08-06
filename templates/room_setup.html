@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+
+{% block content %}
+<header class="page-header page-header-split">
+  <div>
+    <span class="logo-small">Vote</span>
+    <span class="breadcrumb-sep">/</span>
+    <span class="breadcrumb-current">{{ group_name }}</span>
+  </div>
+  <div class="header-badges">
+    <a href="{{ url_for('home') }}" class="badge-link">← ロビーに戻る</a>
+    <span class="badge-status">準備中</span>
+    <span class="badge-muted" id="participant-badge">{{ participant_count }}人参加中</span>
+    <span class="badge-muted">#{{ group_number }}</span>
+    {% if is_owner %}
+    <span class="badge-owner">オーナー</span>
+    {% endif %}
+  </div>
+</header>
+
+<main class="room-layout">
+  <div class="room-main">
+    <div class="room-page-header">
+      <div>
+        <h1>選択肢を準備する</h1>
+        <p class="page-desc">選択肢が揃ったら、リーダーが投票を開始します</p>
+      </div>
+      {% if is_owner %}
+      <div id="start-controls">
+        <button type="button" class="btn btn-primary" id="start-btn" onclick="previewLockOptions()">投票を開始</button>
+      </div>
+      {% endif %}
+      <div class="leave-row">
+        {% if is_owner %}
+        <button type="button" class="btn-leave" onclick="deleteGroup()">このグループを削除する</button>
+        {% else %}
+        <button type="button" class="btn-leave" onclick="leaveGroup()">このグループから脱退する</button>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="confirm-bar" id="confirm-bar" style="display: none;">
+      <p class="confirm-text">この内容で投票を開始しますか?選択肢は投票開始後は編集できなくなります。</p>
+      <div class="confirm-actions">
+        <button type="button" class="btn btn-secondary" onclick="cancelLock()">戻って編集する</button>
+        <button type="button" class="btn btn-primary" onclick="confirmStartVoting()">OK、投票を開始する</button>
+      </div>
+    </div>
+
+    <div class="option-list" id="option-list"></div>
+
+    <p class="empty-state" id="empty-state" style="display: none;">
+      まだ選択肢がありません。最初の選択肢を追加してください。
+    </p>
+
+    {% if is_owner %}
+    <div class="option-add-row" id="option-add-row">
+      <input type="text" id="option-input" class="option-input" maxlength="50" placeholder="選択肢を入力してEnter">
+      <button type="button" class="btn btn-primary option-add-btn" onclick="addOption()">追加</button>
+      <button type="button" class="option-cancel-btn" onclick="cancelOptionInput()">キャンセル</button>
+    </div>
+    <p class="field-error" id="option-input-error"></p>
+    {% endif %}
+  </div>
+
+  <aside class="room-sidebar">
+    <div class="chat-card">
+      <p class="chat-title">💬 選択肢を提案する</p>
+      <p class="chat-subtitle">匿名でアイデアを出し合いましょう(投票が始まると非表示になります)</p>
+
+      <div class="chat-messages" id="chat-messages">
+        <p class="chat-empty">まだ提案がありません</p>
+      </div>
+
+      <div class="chat-input-row">
+        <input type="text" id="chat-input" class="chat-input" maxlength="200" placeholder="例:〇〇はどうですか?">
+        <button type="button" class="chat-send-btn" onclick="sendChatMessage()">送信</button>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<script>
+const groupNumber = "{{ group_number }}";
+const isOwner = {{ 'true' if is_owner else 'false' }};
+
+let locked = false;
+let lastOptions = [];
+
+async function addOption() {
+  const input = document.getElementById("option-input");
+  const errorEl = document.getElementById("option-input-error");
+  const name = input.value.trim();
+
+  if (!name) {
+    errorEl.textContent = "選択肢を入力してください";
+    return;
+  }
+  errorEl.textContent = "";
+
+  await fetch(`/api/room/${groupNumber}/option`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: name })
+  });
+  input.value = "";
+  refreshRoom();
+}
+
+function cancelOptionInput() {
+  document.getElementById("option-input").value = "";
+  document.getElementById("option-input-error").textContent = "";
+}
+
+async function saveOption(index, name) {
+  await fetch(`/api/room/${groupNumber}/option/update`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ index: index, name: name.trim() })
+  });
+}
+
+async function deleteOption(index) {
+  await fetch(`/api/room/${groupNumber}/option/delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ index: index })
+  });
+  refreshRoom();
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById("chat-input");
+  const text = input.value.trim();
+  if (text === "") return;
+
+  await fetch(`/api/room/${groupNumber}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: text })
+  });
+  input.value = "";
+  refreshRoom();
+}
+
+function previewLockOptions() {
+  const inputs = document.querySelectorAll(".option-name-input");
+  let hasEmpty = inputs.length === 0;
+  const currentOptions = [];
+
+  inputs.forEach(input => {
+    const value = input.value.trim();
+    if (value === "") {
+      hasEmpty = true;
+      input.dispatchEvent(new Event("input"));
+    }
+    currentOptions.push({ name: value });
+  });
+
+  if (hasEmpty) {
+    alert("すべての選択肢を入力してから開始してください");
+    return;
+  }
+
+  lastOptions = currentOptions; // 画面上の最新の入力値で上書きする
+
+  locked = true;
+  document.getElementById("start-controls").style.display = "none";
+  document.getElementById("confirm-bar").style.display = "flex";
+  document.getElementById("option-add-row").style.display = "none";
+  renderOptions(lastOptions);
+}
+
+function cancelLock() {
+  locked = false;
+  document.getElementById("start-controls").style.display = "block";
+  document.getElementById("confirm-bar").style.display = "none";
+  document.getElementById("option-add-row").style.display = "flex";
+  renderOptions(lastOptions);
+}
+
+async function confirmStartVoting() {
+  await fetch(`/api/room/${groupNumber}/start`, { method: "POST" });
+  location.reload();
+}
+
+async function leaveGroup() {
+  if (!confirm("本当にこのグループから脱退しますか?")) return;
+  await fetch(`/api/room/${groupNumber}/leave`, { method: "POST" });
+  location.href = "{{ url_for('home') }}";
+}
+
+async function deleteGroup() {
+  if (!confirm("本当にこのグループを削除しますか?この操作は取り消せません。すべての選択肢・チャット・投票データが完全に削除されます。")) return;
+  await fetch(`/api/room/${groupNumber}/delete`, { method: "POST" });
+  location.href = "{{ url_for('home') }}";
+}
+
+const optionInputEl = document.getElementById("option-input");
+if (optionInputEl) {
+  optionInputEl.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") addOption();
+  });
+}
+
+document.getElementById("chat-input").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") sendChatMessage();
+});
+
+function renderOptions(options) {
+  lastOptions = options;
+  const list = document.getElementById("option-list");
+
+  if (locked) {
+    list.innerHTML = "";
+    options.forEach((option, i) => {
+      const row = document.createElement("div");
+      row.className = "option-row";
+      row.innerHTML = `<span class="option-number">${i + 1}</span><span class="option-name-locked"></span>`;
+      row.querySelector(".option-name-locked").textContent = option.name;
+      list.appendChild(row);
+    });
+    document.getElementById("empty-state").style.display = "none";
+    return;
+  }
+
+  const focusedIndex = document.activeElement && document.activeElement.classList.contains("option-name-input")
+    ? Number(document.activeElement.dataset.index) : null;
+
+  list.innerHTML = "";
+  options.forEach((option, i) => {
+    const row = document.createElement("div");
+    row.className = "option-row";
+    row.innerHTML = `
+      <span class="option-number">${i + 1}</span>
+      <div class="option-input-wrap">
+        <p class="field-error option-required-error"></p>
+        <input type="text" class="option-name-input" data-index="${i}" maxlength="50">
+      </div>
+      ${isOwner ? `<button type="button" class="option-delete" onclick="deleteOption(${i})">✕</button>` : ""}
+    `;
+
+    const input = row.querySelector(".option-name-input");
+    const errorEl = row.querySelector(".option-required-error");
+    input.value = option.name;
+    input.placeholder = option.placeholder || "";
+    if (!isOwner) input.disabled = true;
+
+    function updateError() {
+      errorEl.textContent = input.value.trim() === "" ? "選択肢を入力してください" : "";
+    }
+    updateError();
+
+    input.addEventListener("input", updateError);
+    input.addEventListener("blur", () => saveOption(i, input.value));
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
+
+    list.appendChild(row);
+
+    if (i === focusedIndex) input.focus();
+  });
+
+  document.getElementById("empty-state").style.display = options.length === 0 ? "block" : "none";
+}
+
+function renderChat(chat) {
+  const messages = document.getElementById("chat-messages");
+  messages.innerHTML = "";
+  if (chat.length === 0) {
+    messages.innerHTML = `<p class="chat-empty">まだ提案がありません</p>`;
+    return;
+  }
+  chat.forEach(text => {
+    const bubble = document.createElement("p");
+    bubble.className = "chat-bubble";
+    bubble.textContent = text;
+    messages.appendChild(bubble);
+  });
+  messages.scrollTop = messages.scrollHeight;
+}
+
+let currentStatus = "setup";
+
+async function refreshRoom() {
+  const response = await fetch(`/api/room/${groupNumber}`);
+  const room = await response.json();
+
+  const isEditingOption = document.activeElement &&
+    document.activeElement.classList.contains("option-name-input");
+
+  if (!isEditingOption) {
+    renderOptions(room.options);
+  } else {
+    lastOptions = room.options;
+  }
+
+  renderChat(room.chat);
+  document.getElementById("participant-badge").textContent = `${room.participant_count}人参加中`;
+
+  if (room.status !== "setup" && currentStatus === "setup") {
+    showStartedBanner();
+  }
+  currentStatus = room.status;
+}
+
+function showStartedBanner() {
+  const banner = document.createElement("div");
+  banner.className = "started-banner";
+  banner.innerHTML = `
+    投票が開始されました。更新して投票画面へ進みましょう
+    <button type="button" onclick="location.reload()">更新する</button>
+  `;
+  document.body.prepend(banner);
+}
+
+let pollTimer = setInterval(refreshRoom, 5000);
+
+document.addEventListener("visibilitychange", function() {
+  if (document.hidden) {
+    clearInterval(pollTimer);
+  } else {
+    pollTimer = setInterval(refreshRoom, 5000);
+    refreshRoom();
+  }
+});
+
+refreshRoom();
+</script>
+{% endblock %}

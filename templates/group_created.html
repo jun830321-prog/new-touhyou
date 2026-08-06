@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+<header class="page-header page-header-split">
+  <div class="header-left">
+    <a href="{{ url_for('home') }}" class="badge-link">← ロビーに戻る</a>
+    <span class="logo-small">Vote</span>
+  </div>
+  <span class="badge-deadline">投票期間:{{ period_days }}日間(投票開始時からカウント)</span>
+</header>
+
+<main class="form-page">
+  <h1>{{ group_name }}</h1>
+  <p class="page-desc">以下の情報を参加者に共有してください。オーナー専用コードは必ず保存してください。</p>
+
+  <div class="info-card">
+    <div class="info-row">
+      <div>
+        <p class="info-label">投票グループのリンク</p>
+        <p class="info-value info-value-link" id="join-link">https://votefocus.app/j/{{ invite_token }}</p>
+        <p class="info-sub">このリンクを開くだけで、グループ番号・パスワードの入力なしで参加できます</p>
+      </div>
+      <button type="button" class="copy-btn" onclick="copyText('join-link', this)">コピー</button>
+    </div>
+  </div>
+
+  <div class="info-card">
+    <p class="info-label">グループ番号</p>
+    <p class="info-value info-value-large">{{ group_number }}</p>
+    <p class="info-sub">参加用パスワードと一緒に参加者に共有します</p>
+  </div>
+
+  <div class="info-card">
+    <p class="info-label">参加用パスワード</p>
+    <p class="info-value">{{ password }}</p>
+  </div>
+
+
+  <p class="info-note">1人あたりの持ち票数:{{ votes_per_person }}票</p>
+
+  <p class="next-step-hint">次のステップ:「グループへ進む」を押して、選択肢を追加しましょう</p>
+
+  <a href="/room/{{ group_number }}?owner=1" class="btn btn-primary btn-block">グループへ進む →</a>
+</main>
+
+<script>
+function copyText(elementId, btn) {
+  const text = document.getElementById(elementId).innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const original = btn.textContent;
+    btn.textContent = "コピーしました";
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  });
+}
+</script>
+{% endblock %}
