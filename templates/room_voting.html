@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
+<div class="desktop-view">
 <header class="page-header page-header-split">
   <div>
     <span class="logo-small">Vote</span>
@@ -47,10 +48,10 @@
         <span class="option-name">{{ option.name }}</span>
         <div class="vote-controls">
           <button type="button" class="vote-stepper-btn" onclick="changeVote({{ option.id }}, -1)">−</button>
-          <span class="vote-count" id="count-{{ option.id }}">0</span>
+          <span class="vote-count" data-count-for="{{ option.id }}">0</span>
           <button type="button" class="vote-stepper-btn" onclick="changeVote({{ option.id }}, 1)">+</button>
         </div>
-        <div class="vote-dots" id="dots-{{ option.id }}"></div>
+        <div class="vote-dots" data-dots-for="{{ option.id }}"></div>
       </div>
       {% endfor %}
     </div>
@@ -103,11 +104,112 @@
     </div>
   </aside>
 </main>
+</div>
+
+<div class="mobile-view">
+<header class="m-room-header">
+  <div class="m-room-header-top">
+    <a href="{{ url_for('home') }}" class="m-back-link">← ロビー</a>
+  </div>
+  <h1 class="m-room-title">{{ group_name }}</h1>
+  <div class="m-room-badges">
+    <span class="badge-status">投票中</span>
+    <span class="badge-muted" id="participant-badge_m">{{ participant_count }}人参加中</span>
+    <span class="badge-muted">#{{ group_number }}</span>
+    {% if is_owner %}
+    <span class="badge-owner">オーナー</span>
+    {% endif %}
+  </div>
+</header>
+
+<main class="m-vote-main">
+  <div class="vote-header-row m-vote-header-row">
+    <div>
+      <h2>票を配分する</h2>
+      <p class="page-desc">持ち票{{ votes_per_person }}票を好きな選択肢へ自由に配分してください</p>
+    </div>
+    <div class="vote-remaining">
+      <p class="vote-remaining-number" id="remaining-number_m">{{ votes_per_person }}</p>
+      <p class="vote-remaining-label">残り票</p>
+    </div>
+  </div>
+
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-labels">
+      <span id="allocated-label_m">0票配分済み</span>
+      <span>全{{ votes_per_person }}票</span>
+    </div>
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" id="progress-fill_m" style="width: 0%;"></div>
+    </div>
+  </div>
+
+  <div id="vote-options_m">
+    {% for option in options %}
+    <div class="vote-option-row m-vote-option-row" data-option-id="{{ option.id }}">
+      <span class="option-name">{{ option.name }}</span>
+      <div class="vote-dots" data-dots-for="{{ option.id }}"></div>
+      <div class="vote-controls">
+        <button type="button" class="vote-stepper-btn" onclick="changeVote({{ option.id }}, -1)">−</button>
+        <span class="vote-count" data-count-for="{{ option.id }}">0</span>
+        <button type="button" class="vote-stepper-btn" onclick="changeVote({{ option.id }}, 1)">+</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="vote-submit-row m-vote-submit-row" id="vote-submit-row_m">
+    <button type="button" class="btn btn-primary m-btn-block" onclick="submitVote()">この配分で投票する</button>
+    <span class="vote-submit-note" id="submit-note_m">残り{{ votes_per_person }}票は未使用のまま投票できます</span>
+  </div>
+
+  <div class="vote-done-row m-vote-done-row" id="vote-done-row_m" style="display: none;">
+    <span class="vote-done-badge">✓ 投票済みです</span>
+    <a href="#" class="vote-undo-link" onclick="undoVote(); return false;">取り消す</a>
+  </div>
+
+  <div class="m-sidebar-stack">
+    <div class="side-card">
+      <p class="side-card-title">投票状況</p>
+      <p class="vote-status-number"><span id="voted-count_m">{{ voted_count }}</span> / <span id="participant-count-number_m">{{ participant_count }}</span>人 投票済み</p>
+      <div class="progress-bar-track small">
+        <div class="progress-bar-fill" id="status-progress-fill_m" style="width: 0%;"></div>
+      </div>
+      <p class="side-card-note">集計は締切後まで非公開です</p>
+    </div>
+
+    {% if is_owner %}
+    <div class="side-card">
+      <p class="side-card-title">オーナー操作</p>
+      <p class="side-card-text">全員の投票が完了したと判断したら締め切ってください。集計結果が表示されます。</p>
+      <button type="button" class="btn-close-vote" onclick="closeVoting()">投票を締め切る</button>
+    </div>
+    {% endif %}
+
+    <div class="side-card">
+      <p class="side-card-title">ルール</p>
+      <ul class="rule-list">
+        <li>持ち票{{ votes_per_person }}票を自由に配分</li>
+        <li>1つに全部でも複数に分散でもOK</li>
+        <li>締切まで何度でも変更できます</li>
+        <li>集計は締切後にのみ公開されます</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="leave-row">
+    {% if is_owner %}
+    <button type="button" class="btn-leave" onclick="deleteGroup()">このグループを削除する</button>
+    {% else %}
+    <button type="button" class="btn-leave" onclick="leaveGroup()">このグループから脱退する</button>
+    {% endif %}
+  </div>
+</main>
+</div>
 
 <script>
 const groupNumber = "{{ group_number }}";
 const votesPerPerson = {{ votes_per_person }};
-const participantCount = {{ participant_count }};
 
 let myVotes = {};
 {% for option in options %}
@@ -120,28 +222,50 @@ function totalAllocated() {
   return Object.values(myVotes).reduce((a, b) => a + b, 0);
 }
 
-function renderVotes() {
-  const remaining = votesPerPerson - totalAllocated();
-  document.getElementById("remaining-number").textContent = remaining;
-  document.getElementById("allocated-label").textContent = `${totalAllocated()}票配分済み`;
-  document.getElementById("progress-fill").style.width = `${(totalAllocated() / votesPerPerson) * 100}%`;
-  document.getElementById("submit-note").textContent = remaining > 0 ? `残り${remaining}票は未使用のまま投票できます` : "";
-
-  Object.keys(myVotes).forEach(optionId => {
+function renderVotesInto(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.querySelectorAll(".vote-option-row").forEach(row => {
+    const optionId = row.dataset.optionId;
     const count = myVotes[optionId];
-    document.getElementById(`count-${optionId}`).textContent = count;
-    const dotsEl = document.getElementById(`dots-${optionId}`);
-    dotsEl.innerHTML = "";
-    for (let d = 0; d < votesPerPerson; d++) {
-      const dot = document.createElement("span");
-      dot.className = "dot" + (d < count ? " dot-filled" : "");
-      dotsEl.appendChild(dot);
+    const countEl = row.querySelector(`[data-count-for="${optionId}"]`);
+    if (countEl) countEl.textContent = count;
+    const dotsEl = row.querySelector(`[data-dots-for="${optionId}"]`);
+    if (dotsEl) {
+      dotsEl.innerHTML = "";
+      for (let d = 0; d < votesPerPerson; d++) {
+        const dot = document.createElement("span");
+        dot.className = "dot" + (d < count ? " dot-filled" : "");
+        dotsEl.appendChild(dot);
+      }
     }
   });
+  container.querySelectorAll(".vote-stepper-btn").forEach(btn => btn.disabled = submitted);
+}
 
-  document.querySelectorAll(".vote-stepper-btn").forEach(btn => btn.disabled = submitted);
-  document.getElementById("vote-submit-row").style.display = submitted ? "none" : "flex";
-  document.getElementById("vote-done-row").style.display = submitted ? "flex" : "none";
+function renderVotes() {
+  const remaining = votesPerPerson - totalAllocated();
+  const allocatedText = `${totalAllocated()}票配分済み`;
+  const noteText = remaining > 0 ? `残り${remaining}票は未使用のまま投票できます` : "";
+  const pct = (totalAllocated() / votesPerPerson) * 100;
+
+  ["", "_m"].forEach(s => {
+    const remEl = document.getElementById("remaining-number" + s);
+    if (remEl) remEl.textContent = remaining;
+    const allocEl = document.getElementById("allocated-label" + s);
+    if (allocEl) allocEl.textContent = allocatedText;
+    const fillEl = document.getElementById("progress-fill" + s);
+    if (fillEl) fillEl.style.width = `${pct}%`;
+    const noteEl = document.getElementById("submit-note" + s);
+    if (noteEl) noteEl.textContent = noteText;
+
+    renderVotesInto("vote-options" + s);
+
+    const submitRow = document.getElementById("vote-submit-row" + s);
+    if (submitRow) submitRow.style.display = submitted ? "none" : "flex";
+    const doneRow = document.getElementById("vote-done-row" + s);
+    if (doneRow) doneRow.style.display = submitted ? "flex" : "none";
+  });
 }
 
 function changeVote(optionId, delta) {
@@ -191,17 +315,21 @@ async function deleteGroup() {
   location.href = "{{ url_for('home') }}";
 }
 
-function updateStatusCard(room) {
-  document.getElementById("voted-count").textContent = room.voted_count;
-  document.getElementById("participant-count-number").textContent = room.participant_count;
-  const pct = (room.voted_count / room.participant_count) * 100;
-  document.getElementById("status-progress-fill").style.width = `${pct}%`;
-}
-
 async function closeVoting() {
   if (!confirm("投票を締め切りますか?締め切ると結果が発表されます。")) return;
   await fetch(`/api/room/${groupNumber}/close`, { method: "POST" });
   location.reload();
+}
+
+function updateStatusCard(room) {
+  ["", "_m"].forEach(s => {
+    const votedEl = document.getElementById("voted-count" + s);
+    if (votedEl) votedEl.textContent = room.voted_count;
+    const totalEl = document.getElementById("participant-count-number" + s);
+    if (totalEl) totalEl.textContent = room.participant_count;
+    const fillEl = document.getElementById("status-progress-fill" + s);
+    if (fillEl) fillEl.style.width = `${(room.voted_count / room.participant_count) * 100}%`;
+  });
 }
 
 let currentStatus = "voting";
@@ -209,7 +337,12 @@ let currentStatus = "voting";
 async function pollStatus() {
   const res = await fetch(`/api/room/${groupNumber}`);
   const room = await res.json();
-  document.getElementById("participant-badge").textContent = `${room.participant_count}人参加中`;
+
+  const badge = document.getElementById("participant-badge");
+  if (badge) badge.textContent = `${room.participant_count}人参加中`;
+  const badgeM = document.getElementById("participant-badge_m");
+  if (badgeM) badgeM.textContent = `${room.participant_count}人参加中`;
+
   updateStatusCard(room);
 
   if (room.status !== currentStatus) {

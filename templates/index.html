@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
+<div class="desktop-view">
 <header class="site-header">
   <div class="logo">Vote</div>
 </header>
@@ -22,10 +23,20 @@
   </div>
 
   <section class="my-groups-section" id="my-groups-section" style="display: none;">
-    <button type="button" class="my-groups-toggle" onclick="toggleMyGroups()">
-      参加中のグループ <span class="my-groups-count" id="my-groups-count">0</span>
-    </button>
+    <div class="my-groups-header-row">
+      <button type="button" class="my-groups-toggle" onclick="toggleMyGroups()">
+        参加中のグループ <span class="my-groups-count" id="my-groups-count">0</span>
+      </button>
+      <button type="button" class="my-groups-select-link" id="select-toggle-btn" style="display:none;" onclick="toggleSelectMode()">選択</button>
+    </div>
     <div class="my-groups-list" id="my-groups-list" style="display: none;"></div>
+    <div class="my-groups-bulk-bar" id="bulk-bar" style="display:none;">
+      <span id="bulk-selected-count">0件選択中</span>
+      <div class="bulk-bar-actions">
+        <button type="button" class="bulk-cancel-btn" onclick="cancelSelectMode()">キャンセル</button>
+        <button type="button" class="bulk-delete-btn" onclick="bulkLeaveOrDelete()">選択した項目を脱退/削除する</button>
+      </div>
+    </div>
   </section>
 </main>
 
@@ -42,44 +53,232 @@
   </div>
   <div class="feature">
     <span class="feature-number">03</span>
-    <h3>1~5票の自由配分</h3>
+    <h3>5票の自由配分</h3>
     <p>1つに全力投票も、複数に分散も自由。持ち票5票を使い切らなくてもOKです。</p>
   </div>
 </section>
+</div>
+
+<div class="mobile-view">
+<header class="m-hero-header">
+  <div class="m-logo">Vote</div>
+  <h1>チームの答えを、<br>公平に決める</h1>
+  <p class="m-badge">匿名・非公開集計・アカウント不要</p>
+</header>
+
+<main class="m-main">
+  <section class="my-groups-section" id="my-groups-section-m" style="display: none;">
+    <div class="my-groups-header-row">
+      <button type="button" class="my-groups-toggle" onclick="toggleMyGroups()">
+        参加中のグループ <span class="my-groups-count" id="my-groups-count-m">0</span>
+      </button>
+      <button type="button" class="my-groups-select-link" id="select-toggle-btn-m" style="display:none;" onclick="toggleSelectMode()">選択</button>
+    </div>
+    <div class="my-groups-list" id="my-groups-list-m" style="display: none;"></div>
+    <div class="my-groups-bulk-bar" id="bulk-bar-m" style="display:none;">
+      <span id="bulk-selected-count-m">0件選択中</span>
+      <div class="bulk-bar-actions">
+        <button type="button" class="bulk-cancel-btn" onclick="cancelSelectMode()">キャンセル</button>
+        <button type="button" class="bulk-delete-btn" onclick="bulkLeaveOrDelete()">選択した項目を脱退/削除する</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="m-feature-grid">
+    <div class="m-feature">
+      <div class="m-feature-icon">🔒</div>
+      <p class="m-feature-title">完全匿名</p>
+      <p class="m-feature-text">誰が投票したかは誰にも分かりません</p>
+    </div>
+    <div class="m-feature">
+      <div class="m-feature-icon">📊</div>
+      <p class="m-feature-title">非公開集計</p>
+      <p class="m-feature-text">締切まで結果は誰も見られません</p>
+    </div>
+    <div class="m-feature">
+      <div class="m-feature-icon">🗳️</div>
+      <p class="m-feature-title">5票自由配分</p>
+      <p class="m-feature-text">好きな選択肢へ自由に分配できます</p>
+    </div>
+  </div>
+
+  <div class="m-buttons">
+    <a href="{{ url_for('create_group') }}" class="btn btn-primary m-btn-block">グループを作る</a>
+    <a href="{{ url_for('join_group') }}" class="btn btn-secondary m-btn-block">グループに参加する</a>
+  </div>
+</main>
+</div>
+
+<div class="confirm-modal-overlay" id="confirm-modal-overlay" style="display:none;">
+  <div class="confirm-modal" id="confirm-modal">
+    <div class="confirm-modal-icon" id="confirm-modal-icon">⚠</div>
+    <p class="confirm-modal-title" id="confirm-modal-title"></p>
+    <p class="confirm-modal-message" id="confirm-modal-message"></p>
+    <div class="confirm-modal-actions">
+      <button type="button" class="confirm-modal-cancel" onclick="closeConfirmModal(false)">キャンセル</button>
+      <button type="button" class="confirm-modal-confirm" id="confirm-modal-confirm-btn" onclick="closeConfirmModal(true)">OK</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const statusLabels = { setup: "準備中", voting: "投票中", result: "結果発表", closed: "終了" };
 
+let allGroups = [];
+let listOpen = false;
+let selectMode = false;
+let selectedGroups = new Set();
+let confirmModalResolve = null;
+
+function showConfirmModal({ title, message, danger }) {
+  return new Promise(resolve => {
+    confirmModalResolve = resolve;
+    document.getElementById("confirm-modal-title").textContent = title;
+    document.getElementById("confirm-modal-message").textContent = message;
+    const modal = document.getElementById("confirm-modal");
+    const icon = document.getElementById("confirm-modal-icon");
+    if (danger) {
+      modal.classList.add("is-danger");
+      icon.textContent = "⚠";
+    } else {
+      modal.classList.remove("is-danger");
+      icon.textContent = "❓";
+    }
+    document.getElementById("confirm-modal-overlay").style.display = "flex";
+  });
+}
+
+function closeConfirmModal(result) {
+  document.getElementById("confirm-modal-overlay").style.display = "none";
+  if (confirmModalResolve) confirmModalResolve(result);
+  confirmModalResolve = null;
+}
+
 async function loadMyGroups() {
   const res = await fetch("/api/my-groups");
   const groups = await res.json();
-  if (groups.length === 0) return;
+  allGroups = groups;
 
-  document.getElementById("my-groups-count").textContent = groups.length;
-  document.getElementById("my-groups-section").style.display = "block";
+  const hasGroups = groups.length > 0;
+  ["my-groups-section", "my-groups-section-m"].forEach(id => {
+    document.getElementById(id).style.display = hasGroups ? "block" : "none";
+  });
+  if (!hasGroups) return;
 
-  const list = document.getElementById("my-groups-list");
-  list.innerHTML = "";
-  groups.forEach(g => {
-    const row = document.createElement("div");
-    row.className = "my-group-row";
-    row.innerHTML = `
-      <div class="my-group-info">
-        <span class="my-group-name"></span>
-        <span class="badge-muted">#${g.group_number}</span>
-        <span class="badge-status">${statusLabels[g.status] || g.status}</span>
-        ${g.is_owner ? '<span class="badge-owner">オーナー</span>' : ""}
-      </div>
-      <a href="/room/${g.group_number}" class="btn btn-primary my-group-enter">入る</a>
-    `;
-    row.querySelector(".my-group-name").textContent = g.group_name;
-    list.appendChild(row);
+  ["my-groups-count", "my-groups-count-m"].forEach(id => {
+    document.getElementById(id).textContent = groups.length;
+  });
+
+  renderMyGroupsList();
+}
+
+function renderMyGroupsList() {
+  ["my-groups-list", "my-groups-list-m"].forEach(listId => {
+    const list = document.getElementById(listId);
+    list.innerHTML = "";
+    allGroups.forEach(g => {
+      const row = document.createElement("div");
+      row.className = "my-group-row";
+      row.innerHTML = `
+        ${selectMode ? `<input type="checkbox" class="my-group-checkbox" data-group="${g.group_number}" ${selectedGroups.has(g.group_number) ? "checked" : ""} onchange="toggleGroupSelected('${g.group_number}', this.checked)">` : ""}
+        <div class="my-group-info">
+          <span class="my-group-name"></span>
+          <span class="badge-muted">#${g.group_number}</span>
+          <span class="badge-status">${statusLabels[g.status] || g.status}</span>
+          ${g.is_owner ? '<span class="badge-owner">オーナー</span>' : ""}
+        </div>
+        ${!selectMode ? `<a href="/room/${g.group_number}" class="btn btn-primary my-group-enter">入る</a>` : ""}
+      `;
+      row.querySelector(".my-group-name").textContent = g.group_name;
+      list.appendChild(row);
+    });
   });
 }
 
 function toggleMyGroups() {
-  const list = document.getElementById("my-groups-list");
-  list.style.display = list.style.display === "none" ? "block" : "none";
+  listOpen = !listOpen;
+  ["my-groups-list", "my-groups-list-m"].forEach(id => {
+    document.getElementById(id).style.display = listOpen ? "block" : "none";
+  });
+
+  if (listOpen) {
+    ["select-toggle-btn", "select-toggle-btn-m"].forEach(id => {
+      document.getElementById(id).style.display = "inline-block";
+    });
+  } else {
+    // 閉じたら、選択モードも含めて必ず初期状態に戻す
+    cancelSelectMode();
+  }
+}
+
+function toggleSelectMode() {
+  selectMode = true;
+  selectedGroups.clear();
+  ["select-toggle-btn", "select-toggle-btn-m"].forEach(id => {
+    document.getElementById(id).style.display = "none";
+  });
+  ["bulk-bar", "bulk-bar-m"].forEach(id => {
+    document.getElementById(id).style.display = "flex";
+  });
+  updateBulkCount();
+  renderMyGroupsList();
+}
+
+function cancelSelectMode() {
+  selectMode = false;
+  selectedGroups.clear();
+  ["select-toggle-btn", "select-toggle-btn-m"].forEach(id => {
+    document.getElementById(id).style.display = listOpen ? "inline-block" : "none";
+  });
+  ["bulk-bar", "bulk-bar-m"].forEach(id => {
+    document.getElementById(id).style.display = "none";
+  });
+  renderMyGroupsList();
+}
+
+function toggleGroupSelected(groupNumber, checked) {
+  if (checked) selectedGroups.add(groupNumber);
+  else selectedGroups.delete(groupNumber);
+  updateBulkCount();
+  document.querySelectorAll(`.my-group-checkbox[data-group="${groupNumber}"]`).forEach(cb => cb.checked = checked);
+}
+
+function updateBulkCount() {
+  ["bulk-selected-count", "bulk-selected-count-m"].forEach(id => {
+    document.getElementById(id).textContent = `${selectedGroups.size}件選択中`;
+  });
+}
+
+async function bulkLeaveOrDelete() {
+  if (selectedGroups.size === 0) {
+    alert("脱退・削除したいグループにチェックを入れてください");
+    return;
+  }
+
+  const selectedArr = Array.from(selectedGroups);
+  const hasOwnerGroup = selectedArr.some(num => {
+    const g = allGroups.find(x => x.group_number === num);
+    return g && g.is_owner;
+  });
+
+  const confirmed = await showConfirmModal({
+    title: hasOwnerGroup ? "オーナーのグループが含まれています" : "選択したグループから脱退します",
+    message: hasOwnerGroup
+      ? `選択した${selectedArr.length}件の中に、あなたがオーナーのグループが含まれています。オーナーのグループは元に戻せず完全に削除されます。本当によろしいですか?`
+      : `選択した${selectedArr.length}件のグループから脱退します。よろしいですか?`,
+    danger: hasOwnerGroup
+  });
+
+  if (!confirmed) return;
+
+  for (const num of selectedArr) {
+    const g = allGroups.find(x => x.group_number === num);
+    const endpoint = g && g.is_owner ? "delete" : "leave";
+    await fetch(`/api/room/${num}/${endpoint}`, { method: "POST" });
+  }
+
+  cancelSelectMode();
+  loadMyGroups();
 }
 
 loadMyGroups();

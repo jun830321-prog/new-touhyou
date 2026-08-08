@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
+<div class="desktop-view">
 <header class="page-header page-header-split">
   <div>
     <span class="logo-small">Vote</span>
@@ -81,9 +82,89 @@
     </div>
   </aside>
 </main>
+</div>
+
+<div class="mobile-view">
+<header class="m-room-header">
+  <div class="m-room-header-top">
+    <a href="{{ url_for('home') }}" class="m-back-link">← ロビー</a>
+  </div>
+  <h1 class="m-room-title">{{ group_name }}</h1>
+  <div class="m-room-badges">
+    <span class="badge-status result">結果発表</span>
+    <span class="badge-muted">{{ participant_count }}人参加中</span>
+    <span class="badge-muted">#{{ group_number }}</span>
+    {% if is_owner %}
+    <span class="badge-owner">オーナー</span>
+    {% endif %}
+  </div>
+</header>
+
+<main class="m-result-main">
+  {% if results %}
+  <div class="m-leading-banner">
+    <p class="m-leading-label">{% if is_tie %}暫定1位(タイ)を含む{% else %}現在の1位{% endif %}</p>
+    <p class="m-leading-name">{{ results[0].name }}</p>
+    <p class="m-leading-votes">{{ results[0].votes }}票獲得 ・ {{ results[0].percentage }}%</p>
+  </div>
+  {% endif %}
+
+  <p class="m-result-summary">総票数 {{ total_votes }}票・{{ results|length }}件の選択肢</p>
+
+  <div class="result-list">
+    {% for r in results %}
+    <div class="result-row {% if r.is_tie %}is-tie{% endif %}">
+      <span class="result-rank rank-{{ r.rank }}">{{ r.rank }}</span>
+      <span class="result-name">{{ r.name }}</span>
+      {% if r.is_tie %}<span class="tie-badge">タイ</span>{% endif %}
+      <span class="result-votes">{{ r.votes }}票</span>
+      <span class="result-percentage">{{ r.percentage }}%</span>
+    </div>
+    <div class="result-bar-track">
+      <div class="result-bar-fill" style="width: {{ r.percentage }}%;"></div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if is_tie %}
+  <div class="tie-notice">
+    <p class="tie-notice-title">同数タイが発生しました</p>
+    <p class="tie-notice-text">上位の選択肢が同数です。対象の選択肢のみで再投票(持ち票3票)を行います。下の「オーナー操作」から進めてください。</p>
+  </div>
+  {% endif %}
+
+  {% if is_owner %}
+  <div class="side-card">
+    <p class="side-card-title">オーナー操作</p>
+    {% if is_tie %}
+    <p class="side-card-text">タイを解消するか、くじ引きで決定してください。</p>
+    <button type="button" class="btn btn-primary m-btn-block" style="margin-top:8px;" onclick="startRevote()">決選投票へ進む</button>
+    <button type="button" class="btn-close-vote" style="width:100%; margin-top:8px;" onclick="lotteryClose()">くじ引きでクローズ</button>
+    {% else %}
+    <p class="side-card-text">結果を確定し、グループを終了します。</p>
+    <button type="button" class="btn-close-vote" style="width:100%;" onclick="finalClose()">最終クローズ</button>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="side-card">
+    <p class="side-card-title">このページを共有</p>
+    <p class="side-card-text">グループ番号とパスワードを参加者と共有すると、いつでも結果を確認できます。</p>
+  </div>
+
+  <div class="leave-row">
+    {% if is_owner %}
+    <button type="button" class="btn-leave" onclick="deleteGroup()">このグループを削除する</button>
+    {% else %}
+    <button type="button" class="btn-leave" onclick="leaveGroup()">このグループから脱退する</button>
+    {% endif %}
+  </div>
+</main>
+</div>
 
 <script>
 const groupNumber = "{{ group_number }}";
+let currentStatus = "result";
 
 async function startRevote() {
   if (!confirm("タイの選択肢のみで再投票を始めますか?")) return;
@@ -115,12 +196,9 @@ async function deleteGroup() {
   location.href = "{{ url_for('home') }}";
 }
 
-let currentStatus = "result";
-
 async function pollStatus() {
   const res = await fetch(`/api/room/${groupNumber}`);
   const room = await res.json();
-
   if (room.status !== currentStatus) {
     showStatusChangeBanner(room.status);
   }

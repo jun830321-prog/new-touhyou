@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
+<div class="desktop-view">
 <header class="page-header page-header-split">
   <div class="header-left">
     <a href="{{ url_for('home') }}" class="badge-link">← ロビーに戻る</a>
@@ -11,14 +12,14 @@
 
 <main class="form-page">
   <h1>{{ group_name }}</h1>
-  <p class="page-desc">以下の情報を参加者に共有してください。オーナー専用コードは必ず保存してください。</p>
+  <p class="page-desc">以下の情報を参加者に共有してください。</p>
 
   <div class="info-card">
     <div class="info-row">
       <div>
         <p class="info-label">投票グループのリンク</p>
         <p class="info-value info-value-link" id="join-link">https://votefocus.app/j/{{ invite_token }}</p>
-        <p class="info-sub">このリンクを開くだけで、グループ番号・パスワードの入力なしで参加できます</p>
+        <p class="info-sub">このリンクを開くだけで、番号・パスワードの入力なしで参加できます</p>
       </div>
       <button type="button" class="copy-btn" onclick="copyText('join-link', this)">コピー</button>
     </div>
@@ -35,13 +36,50 @@
     <p class="info-value">{{ password }}</p>
   </div>
 
-
   <p class="info-note">1人あたりの持ち票数:{{ votes_per_person }}票</p>
-
   <p class="next-step-hint">次のステップ:「グループへ進む」を押して、選択肢を追加しましょう</p>
 
-  <a href="/room/{{ group_number }}?owner=1" class="btn btn-primary btn-block">グループへ進む →</a>
+  <a href="/room/{{ group_number }}" class="btn btn-primary btn-block">グループへ進む →</a>
 </main>
+</div>
+
+<div class="mobile-view">
+<header class="m-page-header">
+  <a href="{{ url_for('home') }}" class="m-back-link">← ロビーに戻る</a>
+  <span class="m-logo-small">Vote</span>
+</header>
+
+<main class="m-form-page">
+  <div class="m-success-banner">
+    <span class="m-success-icon">✓</span>
+    グループが作成されました
+  </div>
+
+  <div class="m-info-card">
+    <p class="m-info-label">グループ番号</p>
+    <p class="m-info-value-large">{{ group_number }}</p>
+    <p class="m-info-sub">参加者に共有してください</p>
+  </div>
+
+  <div class="m-info-card">
+    <p class="m-info-label">参加用パスワード</p>
+    <p class="m-info-value">{{ password }}</p>
+  </div>
+
+  <div class="m-info-card">
+    <p class="m-info-label">投票グループのリンク</p>
+    <p class="m-info-value-link" id="join-link-m">https://votefocus.app/j/{{ invite_token }}</p>
+    <div class="m-info-row">
+      <p class="m-info-sub">リンクを開くだけで番号・パスワード入力なしで参加できます</p>
+      <button type="button" class="copy-btn" onclick="copyText('join-link-m', this)">コピー</button>
+    </div>
+  </div>
+
+  <p class="m-info-note">1人あたりの持ち票数:{{ votes_per_person }}票 ・ 投票期間:{{ period_days }}日間(投票開始時からカウント)</p>
+
+  <a href="/room/{{ group_number }}" class="btn btn-primary btn-block">グループへ進む →</a>
+</main>
+</div>
 
 <script>
 function copyText(elementId, btn) {

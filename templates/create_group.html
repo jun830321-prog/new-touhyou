@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
+<div class="desktop-view">
 <header class="page-header">
   <a href="{{ url_for('home') }}" class="back-link">← 戻る</a>
   <span class="logo-small">Vote</span>
@@ -30,9 +31,9 @@
       <div class="form-group">
         <label for="votes_per_person">1人あたりの持ち票数</label>
         <div class="stepper">
-          <button type="button" class="stepper-btn" onclick="stepValue('votes_per_person', -1)">−</button>
+          <button type="button" class="stepper-btn" onclick="stepValue('votes_per_person', '', -1)">−</button>
           <input type="number" id="votes_per_person" name="votes_per_person" min="1" max="5" value="5">
-          <button type="button" class="stepper-btn" onclick="stepValue('votes_per_person', 1)">+</button>
+          <button type="button" class="stepper-btn" onclick="stepValue('votes_per_person', '', 1)">+</button>
         </div>
         <p class="form-hint">1〜5票の範囲で指定できます</p>
       </div>
@@ -40,9 +41,9 @@
       <div class="form-group">
         <label for="period_days">投票期間(日数)</label>
         <div class="stepper">
-          <button type="button" class="stepper-btn" onclick="stepValue('period_days', -1)">−</button>
+          <button type="button" class="stepper-btn" onclick="stepValue('period_days', '', -1)">−</button>
           <input type="number" id="period_days" name="period_days" min="1" max="30" value="7">
-          <button type="button" class="stepper-btn" onclick="stepValue('period_days', 1)">+</button>
+          <button type="button" class="stepper-btn" onclick="stepValue('period_days', '', 1)">+</button>
         </div>
         <p class="form-hint" id="end_estimate"></p>
       </div>
@@ -62,77 +63,138 @@
     </form>
   </div>
 </main>
+</div>
+
+<div class="mobile-view">
+<header class="m-page-header">
+  <a href="{{ url_for('home') }}" class="m-back-link">←</a>
+  <span class="m-page-title">グループを作成</span>
+</header>
+
+<main class="m-form-page">
+  <div class="m-card">
+    <form method="POST" action="{{ url_for('create_group') }}" novalidate id="create-form_m">
+      <div class="form-group">
+        <label for="group_name_m">グループ名</label>
+        <input type="text" id="group_name_m" name="group_name" maxlength="30" placeholder="例:第3回定例会 場所決め">
+        <p class="field-error" id="group_name_error_m"></p>
+      </div>
+
+      <div class="form-group">
+        <label for="password_m">参加用パスワード</label>
+        <input type="text" id="password_m" name="password" maxlength="12" pattern="[A-Za-z0-9]{4,12}" title="半角英数字4〜12文字で入力してください" placeholder="参加者に共有するパスワード">
+        <p class="form-hint">半角英数字4〜12文字が使えます</p>
+        <p class="field-error" id="password_error_m"></p>
+      </div>
+
+      <div class="m-field-row">
+        <div class="form-group m-half">
+          <label for="votes_per_person_m">持ち票数</label>
+          <div class="stepper">
+            <button type="button" class="stepper-btn" onclick="stepValue('votes_per_person', '_m', -1)">−</button>
+            <input type="number" id="votes_per_person_m" name="votes_per_person" min="1" max="5" value="5">
+            <button type="button" class="stepper-btn" onclick="stepValue('votes_per_person', '_m', 1)">+</button>
+          </div>
+        </div>
+
+        <div class="form-group m-half">
+          <label for="period_days_m">投票期間(日)</label>
+          <div class="stepper">
+            <button type="button" class="stepper-btn" onclick="stepValue('period_days', '_m', -1)">−</button>
+            <input type="number" id="period_days_m" name="period_days" min="1" max="30" value="7">
+            <button type="button" class="stepper-btn" onclick="stepValue('period_days', '_m', 1)">+</button>
+          </div>
+        </div>
+      </div>
+      <p class="form-hint" id="end_estimate_m"></p>
+
+      <div class="form-group toggle-row">
+        <div>
+          <label>選択肢をシャッフル</label>
+          <p class="form-hint">参加者ごとに並び順がランダムになります</p>
+        </div>
+        <label class="switch">
+          <input type="checkbox" name="shuffle_options" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block">グループを作成する</button>
+    </form>
+  </div>
+</main>
+</div>
 
 <script>
-function stepValue(id, delta) {
-  const input = document.getElementById(id);
+function stepValue(field, suffix, delta) {
+  const input = document.getElementById(field + suffix);
   const min = parseInt(input.min);
   const max = parseInt(input.max);
   let value = parseInt(input.value) + delta;
   if (value < min) value = min;
   if (value > max) value = max;
   input.value = value;
-  if (id === "period_days") updateEndEstimate();
+  if (field === "period_days") updateEndEstimate(suffix);
 }
 
-function updateEndEstimate() {
-  const days = parseInt(document.getElementById("period_days").value) || 0;
+function updateEndEstimate(suffix) {
+  const days = parseInt(document.getElementById("period_days" + suffix).value) || 0;
   const endDate = new Date();
   endDate.setDate(endDate.getDate() + days);
-
   const formatted = endDate.toLocaleString("ja-JP", {
     year: "numeric", month: "long", day: "numeric",
     hour: "2-digit", minute: "2-digit"
   });
-
-  document.getElementById("end_estimate").textContent = `終了予定:${formatted}頃(このまま自動締切)`;
+  document.getElementById("end_estimate" + suffix).textContent = `終了予定:${formatted}頃(このまま自動締切)`;
 }
 
-document.getElementById("period_days").addEventListener("input", updateEndEstimate);
-updateEndEstimate();
+function setupFormValidation(suffix) {
+  let formSubmitted = false;
 
-let formSubmitted = false;
-
-function validateGroupName() {
-  const groupName = document.getElementById("group_name");
-  const groupNameError = document.getElementById("group_name_error");
-  if (groupName.value.trim() === "") {
-    groupNameError.textContent = "グループ名を入力してください";
-    return false;
+  function validateGroupName() {
+    const el = document.getElementById("group_name" + suffix);
+    const errorEl = document.getElementById("group_name_error" + suffix);
+    if (el.value.trim() === "") {
+      errorEl.textContent = "グループ名を入力してください";
+      return false;
+    }
+    errorEl.textContent = "";
+    return true;
   }
-  groupNameError.textContent = "";
-  return true;
+
+  function validatePassword() {
+    const el = document.getElementById("password" + suffix);
+    const errorEl = document.getElementById("password_error" + suffix);
+    if (el.value.trim() === "") {
+      errorEl.textContent = "参加用パスワードを入力してください";
+      return false;
+    } else if (!el.checkValidity()) {
+      errorEl.textContent = "半角英数字4〜12文字で入力してください";
+      return false;
+    }
+    errorEl.textContent = "";
+    return true;
+  }
+
+  const form = document.getElementById("create-form" + suffix);
+  form.addEventListener("submit", function(e) {
+    formSubmitted = true;
+    const a = validateGroupName();
+    const b = validatePassword();
+    if (!a || !b) e.preventDefault();
+  });
+
+  document.getElementById("group_name" + suffix).addEventListener("input", function() {
+    if (formSubmitted) validateGroupName();
+  });
+  document.getElementById("password" + suffix).addEventListener("input", function() {
+    if (formSubmitted) validatePassword();
+  });
 }
 
-function validatePassword() {
-  const password = document.getElementById("password");
-  const passwordError = document.getElementById("password_error");
-  if (password.value.trim() === "") {
-    passwordError.textContent = "参加用パスワードを入力してください";
-    return false;
-  } else if (!password.checkValidity()) {
-    passwordError.textContent = "半角英数字4〜12文字で入力してください";
-    return false;
-  }
-  passwordError.textContent = "";
-  return true;
-}
-
-document.getElementById("create-form").addEventListener("submit", function(e) {
-  formSubmitted = true;
-  const groupNameValid = validateGroupName();
-  const passwordValid = validatePassword();
-  if (!groupNameValid || !passwordValid) {
-    e.preventDefault();
-  }
-});
-
-document.getElementById("group_name").addEventListener("input", function() {
-  if (formSubmitted) validateGroupName();
-});
-
-document.getElementById("password").addEventListener("input", function() {
-  if (formSubmitted) validatePassword();
-});
+updateEndEstimate("");
+updateEndEstimate("_m");
+setupFormValidation("");
+setupFormValidation("_m");
 </script>
 {% endblock %}

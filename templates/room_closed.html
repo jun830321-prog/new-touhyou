@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
+<div class="desktop-view">
 <header class="page-header">
   <span class="logo-small">Vote</span>
 </header>
@@ -17,7 +18,48 @@
   </div>
 
   <a href="{{ url_for('home') }}" class="btn btn-primary">← ロビーに戻る</a>
-  
+
   <p class="closed-note">このページはブラウザを閉じると消えます</p>
 </main>
+</div>
+
+<div class="mobile-view">
+<header class="m-page-header">
+  <span class="m-logo-small">Vote</span>
+</header>
+
+<main class="m-closed-page">
+  <div class="m-closed-banner">
+    <div class="m-closed-icon">✓</div>
+    <p class="m-closed-title">投票が完了しました</p>
+    <p class="m-closed-sub">{{ group_name }}</p>
+  </div>
+
+  <div class="m-closed-decision-card">
+    <p class="m-closed-label">決定事項</p>
+    <p class="m-closed-decision">{{ final_decision }}</p>
+    <p class="m-closed-votes">{{ final_votes }}票獲得{% if closed_results %} ・ {{ closed_results[0].percentage }}%{% endif %}</p>
+  </div>
+
+  {% if closed_results %}
+  <div class="m-closed-fullresults">
+    <p class="m-closed-fullresults-title">全結果</p>
+    {% for r in closed_results %}
+    <div class="m-closed-result-row">
+      <span class="m-closed-result-rank">{{ r.rank }}.</span>
+      <span class="m-closed-result-name">{{ r.name }}</span>
+      <span class="m-closed-result-votes">{{ r.votes }}票</span>
+    </div>
+    <div class="result-bar-track">
+      <div class="result-bar-fill" style="width: {{ r.percentage }}%;"></div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <a href="{{ url_for('home') }}" class="btn btn-primary btn-block">← ロビーに戻る</a>
+
+  <p class="closed-note">このページはブラウザを閉じると消えます</p>
+</main>
+</div>
 {% endblock %}

@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 
 {% block content %}
+<div class="desktop-view">
 <header class="page-header">
-  <a href="{{ url_for('home') }}" class="back-link">← ロビーに戻る</a>
+  <a href="{{ url_for('home') }}" class="back-link">← 戻る</a>
   <span class="logo-small">Vote</span>
   <span class="breadcrumb-sep">/</span>
   <span class="breadcrumb-current">グループに参加</span>
@@ -33,44 +34,82 @@
     </form>
   </div>
 </main>
+</div>
+
+<div class="mobile-view">
+<header class="m-page-header">
+  <a href="{{ url_for('home') }}" class="m-back-link">←</a>
+  <span class="m-page-title">グループに参加</span>
+</header>
+
+<main class="m-form-page">
+  <div class="m-card">
+    {% if error %}
+    <p class="server-error">{{ error }}</p>
+    {% endif %}
+    <p class="page-desc m-join-desc">オーナーから共有されたグループ番号とパスワードを入力してください</p>
+    <form method="POST" action="{{ url_for('join_group') }}" novalidate id="join-form_m">
+      <div class="form-group">
+        <label for="group_number_m">グループ番号</label>
+        <input type="text" id="group_number_m" name="group_number" maxlength="4" pattern="[0-9]{4}" inputmode="numeric" placeholder="0000">
+        <p class="field-error" id="group_number_error_m"></p>
+      </div>
+
+      <div class="form-group">
+        <label for="join_password_m">参加用パスワード</label>
+        <input type="text" id="join_password_m" name="password" maxlength="12" placeholder="オーナーから共有されたパスワード">
+        <p class="field-error" id="join_password_error_m"></p>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block">参加する</button>
+    </form>
+  </div>
+</main>
+</div>
 
 <script>
-let formSubmitted = false;
+function setupJoinValidation(suffix) {
+  let formSubmitted = false;
 
-function validateGroupNumber() {
-  const el = document.getElementById("group_number");
-  const errorEl = document.getElementById("group_number_error");
-  if (el.value.trim() === "") {
-    errorEl.textContent = "グループ番号を入力してください";
-    return false;
+  function validateGroupNumber() {
+    const el = document.getElementById("group_number" + suffix);
+    const errorEl = document.getElementById("group_number_error" + suffix);
+    if (el.value.trim() === "") {
+      errorEl.textContent = "グループ番号を入力してください";
+      return false;
+    }
+    errorEl.textContent = "";
+    return true;
   }
-  errorEl.textContent = "";
-  return true;
+
+  function validateJoinPassword() {
+    const el = document.getElementById("join_password" + suffix);
+    const errorEl = document.getElementById("join_password_error" + suffix);
+    if (el.value.trim() === "") {
+      errorEl.textContent = "パスワードを入力してください";
+      return false;
+    }
+    errorEl.textContent = "";
+    return true;
+  }
+
+  const form = document.getElementById("join-form" + suffix);
+  form.addEventListener("submit", function(e) {
+    formSubmitted = true;
+    const a = validateGroupNumber();
+    const b = validateJoinPassword();
+    if (!a || !b) e.preventDefault();
+  });
+
+  document.getElementById("group_number" + suffix).addEventListener("input", function() {
+    if (formSubmitted) validateGroupNumber();
+  });
+  document.getElementById("join_password" + suffix).addEventListener("input", function() {
+    if (formSubmitted) validateJoinPassword();
+  });
 }
 
-function validateJoinPassword() {
-  const el = document.getElementById("join_password");
-  const errorEl = document.getElementById("join_password_error");
-  if (el.value.trim() === "") {
-    errorEl.textContent = "パスワードを入力してください";
-    return false;
-  }
-  errorEl.textContent = "";
-  return true;
-}
-
-document.getElementById("join-form").addEventListener("submit", function(e) {
-  formSubmitted = true;
-  const a = validateGroupNumber();
-  const b = validateJoinPassword();
-  if (!a || !b) e.preventDefault();
-});
-
-document.getElementById("group_number").addEventListener("input", function() {
-  if (formSubmitted) validateGroupNumber();
-});
-document.getElementById("join_password").addEventListener("input", function() {
-  if (formSubmitted) validateJoinPassword();
-});
+setupJoinValidation("");
+setupJoinValidation("_m");
 </script>
 {% endblock %}

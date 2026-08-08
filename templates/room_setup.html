@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
+<div class="desktop-view">
 <header class="page-header page-header-split">
   <div>
     <span class="logo-small">Vote</span>
@@ -27,16 +28,9 @@
       </div>
       {% if is_owner %}
       <div id="start-controls">
-        <button type="button" class="btn btn-primary" id="start-btn" onclick="previewLockOptions()">投票を開始</button>
+        <button type="button" class="btn btn-primary" onclick="previewLockOptions('')">投票を開始</button>
       </div>
       {% endif %}
-      <div class="leave-row">
-        {% if is_owner %}
-        <button type="button" class="btn-leave" onclick="deleteGroup()">このグループを削除する</button>
-        {% else %}
-        <button type="button" class="btn-leave" onclick="leaveGroup()">このグループから脱退する</button>
-        {% endif %}
-      </div>
     </div>
 
     <div class="confirm-bar" id="confirm-bar" style="display: none;">
@@ -56,11 +50,19 @@
     {% if is_owner %}
     <div class="option-add-row" id="option-add-row">
       <input type="text" id="option-input" class="option-input" maxlength="50" placeholder="選択肢を入力してEnter">
-      <button type="button" class="btn btn-primary option-add-btn" onclick="addOption()">追加</button>
-      <button type="button" class="option-cancel-btn" onclick="cancelOptionInput()">キャンセル</button>
+      <button type="button" class="btn btn-primary option-add-btn" onclick="addOption('')">追加</button>
+      <button type="button" class="option-cancel-btn" onclick="cancelOptionInput('')">キャンセル</button>
     </div>
     <p class="field-error" id="option-input-error"></p>
     {% endif %}
+
+    <div class="leave-row">
+      {% if is_owner %}
+      <button type="button" class="btn-leave" onclick="deleteGroup()">このグループを削除する</button>
+      {% else %}
+      <button type="button" class="btn-leave" onclick="leaveGroup()">このグループから脱退する</button>
+      {% endif %}
+    </div>
   </div>
 
   <aside class="room-sidebar">
@@ -74,11 +76,95 @@
 
       <div class="chat-input-row">
         <input type="text" id="chat-input" class="chat-input" maxlength="200" placeholder="例:〇〇はどうですか?">
-        <button type="button" class="chat-send-btn" onclick="sendChatMessage()">送信</button>
+        <button type="button" class="chat-send-btn" onclick="sendChatMessage('')">送信</button>
       </div>
     </div>
   </aside>
 </main>
+</div>
+
+<div class="mobile-view">
+<header class="m-room-header">
+  <div class="m-room-header-top">
+    <a href="{{ url_for('home') }}" class="m-back-link">← ロビー</a>
+  </div>
+  <h1 class="m-room-title">{{ group_name }}</h1>
+  <div class="m-room-badges">
+    <span class="badge-status">準備中</span>
+    <span class="badge-muted" id="participant-badge_m">{{ participant_count }}人参加中</span>
+    <span class="badge-muted">#{{ group_number }}</span>
+    {% if is_owner %}
+    <span class="badge-owner">オーナー</span>
+    {% endif %}
+  </div>
+</header>
+
+<div class="m-tabs">
+  <button type="button" class="m-tab active" id="tab-options" onclick="switchTab('options')">選択肢</button>
+  <button type="button" class="m-tab" id="tab-chat" onclick="switchTab('chat')">
+    提案 <span class="m-tab-badge" id="chat-tab-badge" style="display:none;">0</span>
+  </button>
+</div>
+
+<div id="m-options-pane">
+  <div class="m-options-header">
+    <h2>選択肢を準備する</h2>
+    <p class="page-desc">選択肢が揃ったら、リーダーが投票を開始します</p>
+    {% if is_owner %}
+    <div id="start-controls_m">
+      <button type="button" class="btn btn-primary m-btn-block" onclick="previewLockOptions('_m')">投票を開始</button>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="confirm-bar m-confirm-bar" id="confirm-bar_m" style="display: none;">
+    <p class="confirm-text">この内容で投票を開始しますか?選択肢は投票開始後は編集できなくなります。</p>
+    <div class="confirm-actions m-confirm-actions">
+      <button type="button" class="btn btn-secondary" onclick="cancelLock()">戻って編集する</button>
+      <button type="button" class="btn btn-primary" onclick="confirmStartVoting()">OK、投票を開始する</button>
+    </div>
+  </div>
+
+  <div class="option-list" id="option-list_m"></div>
+
+  <p class="empty-state" id="empty-state_m" style="display: none;">
+    まだ選択肢がありません。最初の選択肢を追加してください。
+  </p>
+
+  {% if is_owner %}
+  <div class="option-add-row" id="option-add-row_m">
+    <input type="text" id="option-input_m" class="option-input" maxlength="50" placeholder="選択肢を入力してEnter">
+    <button type="button" class="btn btn-primary option-add-btn" onclick="addOption('_m')">追加</button>
+    <button type="button" class="option-cancel-btn" onclick="cancelOptionInput('_m')">キャンセル</button>
+  </div>
+  <p class="field-error" id="option-input-error_m"></p>
+  {% endif %}
+
+  <div class="leave-row">
+    {% if is_owner %}
+    <button type="button" class="btn-leave" onclick="deleteGroup()">このグループを削除する</button>
+    {% else %}
+    <button type="button" class="btn-leave" onclick="leaveGroup()">このグループから脱退する</button>
+    {% endif %}
+  </div>
+</div>
+
+<div id="m-chat-pane" style="display:none;">
+  <div class="chat-card">
+    <p class="chat-title">💬 選択肢を提案する</p>
+    <p class="chat-subtitle">匿名でアイデアを出し合いましょう(投票が始まると非表示になります)</p>
+
+    <div class="chat-messages" id="chat-messages_m">
+      <p class="chat-empty">まだ提案がありません</p>
+    </div>
+
+    <div class="chat-input-row">
+      <input type="text" id="chat-input_m" class="chat-input" maxlength="200" placeholder="例:〇〇はどうですか?">
+      <button type="button" class="chat-send-btn" onclick="sendChatMessage('_m')">送信</button>
+    </div>
+  </div>
+</div>
+</div>
 
 <script>
 const groupNumber = "{{ group_number }}";
@@ -86,10 +172,14 @@ const isOwner = {{ 'true' if is_owner else 'false' }};
 
 let locked = false;
 let lastOptions = [];
+let lastChat = [];
+let currentStatus = "setup";
+let activeTab = "options";
+let lastSeenChatCount = 0;
 
-async function addOption() {
-  const input = document.getElementById("option-input");
-  const errorEl = document.getElementById("option-input-error");
+async function addOption(suffix) {
+  const input = document.getElementById("option-input" + suffix);
+  const errorEl = document.getElementById("option-input-error" + suffix);
   const name = input.value.trim();
 
   if (!name) {
@@ -107,9 +197,9 @@ async function addOption() {
   refreshRoom();
 }
 
-function cancelOptionInput() {
-  document.getElementById("option-input").value = "";
-  document.getElementById("option-input-error").textContent = "";
+function cancelOptionInput(suffix) {
+  document.getElementById("option-input" + suffix).value = "";
+  document.getElementById("option-input-error" + suffix).textContent = "";
 }
 
 async function saveOption(index, name) {
@@ -129,8 +219,8 @@ async function deleteOption(index) {
   refreshRoom();
 }
 
-async function sendChatMessage() {
-  const input = document.getElementById("chat-input");
+async function sendChatMessage(suffix) {
+  const input = document.getElementById("chat-input" + suffix);
   const text = input.value.trim();
   if (text === "") return;
 
@@ -143,8 +233,20 @@ async function sendChatMessage() {
   refreshRoom();
 }
 
-function previewLockOptions() {
-  const inputs = document.querySelectorAll(".option-name-input");
+function applyLockedUI() {
+  ["", "_m"].forEach(s => {
+    const startControls = document.getElementById("start-controls" + s);
+    const confirmBar = document.getElementById("confirm-bar" + s);
+    const addRow = document.getElementById("option-add-row" + s);
+    if (startControls) startControls.style.display = locked ? "none" : "block";
+    if (confirmBar) confirmBar.style.display = locked ? "flex" : "none";
+    if (addRow) addRow.style.display = locked ? "none" : "flex";
+  });
+}
+
+function previewLockOptions(suffix) {
+  const container = document.getElementById("option-list" + suffix);
+  const inputs = container.querySelectorAll(".option-name-input");
   let hasEmpty = inputs.length === 0;
   const currentOptions = [];
 
@@ -162,20 +264,15 @@ function previewLockOptions() {
     return;
   }
 
-  lastOptions = currentOptions; // 画面上の最新の入力値で上書きする
-
+  lastOptions = currentOptions;
   locked = true;
-  document.getElementById("start-controls").style.display = "none";
-  document.getElementById("confirm-bar").style.display = "flex";
-  document.getElementById("option-add-row").style.display = "none";
+  applyLockedUI();
   renderOptions(lastOptions);
 }
 
 function cancelLock() {
   locked = false;
-  document.getElementById("start-controls").style.display = "block";
-  document.getElementById("confirm-bar").style.display = "none";
-  document.getElementById("option-add-row").style.display = "flex";
+  applyLockedUI();
   renderOptions(lastOptions);
 }
 
@@ -184,32 +281,43 @@ async function confirmStartVoting() {
   location.reload();
 }
 
-async function leaveGroup() {
-  if (!confirm("本当にこのグループから脱退しますか?")) return;
-  await fetch(`/api/room/${groupNumber}/leave`, { method: "POST" });
-  location.href = "{{ url_for('home') }}";
-}
-
 async function deleteGroup() {
   if (!confirm("本当にこのグループを削除しますか?この操作は取り消せません。すべての選択肢・チャット・投票データが完全に削除されます。")) return;
   await fetch(`/api/room/${groupNumber}/delete`, { method: "POST" });
   location.href = "{{ url_for('home') }}";
 }
 
-const optionInputEl = document.getElementById("option-input");
-if (optionInputEl) {
-  optionInputEl.addEventListener("keydown", function(e) {
-    if (e.key === "Enter") addOption();
-  });
+async function leaveGroup() {
+  if (!confirm("本当にこのグループから脱退しますか?")) return;
+  await fetch(`/api/room/${groupNumber}/leave`, { method: "POST" });
+  location.href = "{{ url_for('home') }}";
 }
 
-document.getElementById("chat-input").addEventListener("keydown", function(e) {
-  if (e.key === "Enter") sendChatMessage();
-});
+function switchTab(tab) {
+  activeTab = tab;
+  const optionsPane = document.getElementById("m-options-pane");
+  const chatPane = document.getElementById("m-chat-pane");
+  const tabOptions = document.getElementById("tab-options");
+  const tabChat = document.getElementById("tab-chat");
 
-function renderOptions(options) {
-  lastOptions = options;
-  const list = document.getElementById("option-list");
+  if (tab === "chat") {
+    optionsPane.style.display = "none";
+    chatPane.style.display = "block";
+    tabOptions.classList.remove("active");
+    tabChat.classList.add("active");
+    lastSeenChatCount = lastChat.length;
+    document.getElementById("chat-tab-badge").style.display = "none";
+  } else {
+    optionsPane.style.display = "block";
+    chatPane.style.display = "none";
+    tabOptions.classList.add("active");
+    tabChat.classList.remove("active");
+  }
+}
+
+function renderOptionsInto(containerId, options) {
+  const list = document.getElementById(containerId);
+  if (!list) return;
 
   if (locked) {
     list.innerHTML = "";
@@ -220,11 +328,12 @@ function renderOptions(options) {
       row.querySelector(".option-name-locked").textContent = option.name;
       list.appendChild(row);
     });
-    document.getElementById("empty-state").style.display = "none";
     return;
   }
 
-  const focusedIndex = document.activeElement && document.activeElement.classList.contains("option-name-input")
+  const focusedIndex = document.activeElement &&
+    document.activeElement.classList.contains("option-name-input") &&
+    list.contains(document.activeElement)
     ? Number(document.activeElement.dataset.index) : null;
 
   list.innerHTML = "";
@@ -256,15 +365,25 @@ function renderOptions(options) {
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") input.blur(); });
 
     list.appendChild(row);
-
     if (i === focusedIndex) input.focus();
   });
-
-  document.getElementById("empty-state").style.display = options.length === 0 ? "block" : "none";
 }
 
-function renderChat(chat) {
-  const messages = document.getElementById("chat-messages");
+function renderOptions(options) {
+  lastOptions = options;
+  renderOptionsInto("option-list", options);
+  renderOptionsInto("option-list_m", options);
+
+  const isEmpty = options.length === 0 && !locked;
+  const emptyEl = document.getElementById("empty-state");
+  if (emptyEl) emptyEl.style.display = isEmpty ? "block" : "none";
+  const emptyElM = document.getElementById("empty-state_m");
+  if (emptyElM) emptyElM.style.display = isEmpty ? "block" : "none";
+}
+
+function renderChatInto(containerId, chat) {
+  const messages = document.getElementById(containerId);
+  if (!messages) return;
   messages.innerHTML = "";
   if (chat.length === 0) {
     messages.innerHTML = `<p class="chat-empty">まだ提案がありません</p>`;
@@ -279,7 +398,22 @@ function renderChat(chat) {
   messages.scrollTop = messages.scrollHeight;
 }
 
-let currentStatus = "setup";
+function renderChat(chat) {
+  lastChat = chat;
+  renderChatInto("chat-messages", chat);
+  renderChatInto("chat-messages_m", chat);
+
+  const badge = document.getElementById("chat-tab-badge");
+  if (badge) {
+    const unread = chat.length - lastSeenChatCount;
+    if (activeTab !== "chat" && unread > 0) {
+      badge.textContent = unread;
+      badge.style.display = "inline-block";
+    } else {
+      badge.style.display = "none";
+    }
+  }
+}
 
 async function refreshRoom() {
   const response = await fetch(`/api/room/${groupNumber}`);
@@ -295,7 +429,11 @@ async function refreshRoom() {
   }
 
   renderChat(room.chat);
-  document.getElementById("participant-badge").textContent = `${room.participant_count}人参加中`;
+
+  const badge = document.getElementById("participant-badge");
+  if (badge) badge.textContent = `${room.participant_count}人参加中`;
+  const badgeM = document.getElementById("participant-badge_m");
+  if (badgeM) badgeM.textContent = `${room.participant_count}人参加中`;
 
   if (room.status !== "setup" && currentStatus === "setup") {
     showStartedBanner();
@@ -312,6 +450,14 @@ function showStartedBanner() {
   `;
   document.body.prepend(banner);
 }
+
+["", "_m"].forEach(s => {
+  const optInput = document.getElementById("option-input" + s);
+  if (optInput) optInput.addEventListener("keydown", e => { if (e.key === "Enter") addOption(s); });
+
+  const chatInput = document.getElementById("chat-input" + s);
+  if (chatInput) chatInput.addEventListener("keydown", e => { if (e.key === "Enter") sendChatMessage(s); });
+});
 
 let pollTimer = setInterval(refreshRoom, 5000);
 

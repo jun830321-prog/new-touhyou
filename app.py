@@ -335,11 +335,14 @@ def room_setup(group_number):
         group_row = db.execute(
             "SELECT final_decision, final_votes FROM groups WHERE group_number = ?", (group_number,)
         ).fetchone()
+        closed_results = get_results(group_number)
         return render_template(
             "room_closed.html",
             group_name=room["group_name"],
             final_decision=group_row["final_decision"],
-            final_votes=group_row["final_votes"]
+            final_votes=group_row["final_votes"],
+            closed_results=closed_results["results"],
+            closed_total_votes=closed_results["total_votes"]
         )
 
     return render_template(
@@ -696,4 +699,4 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
     threading.Thread(target=background_cleanup_loop, daemon=True).start()
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host="0.0.0.0")
